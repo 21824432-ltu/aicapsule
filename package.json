@@ -6,5 +6,8 @@
   "scripts": {
     "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend",
     "start": "npm start --prefix backend"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.1.1"
   }
 }
