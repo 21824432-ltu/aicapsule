@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output
+frontend/dist/
+
+# Database (ephemeral on Render's free tier anyway — never commit real data)
+backend/aicapsule.db
+
+# Environment variables — NEVER commit real secrets
+backend/.env
+.env
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
