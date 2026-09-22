@@ -1,23 +1,20 @@
 # AI Capsule — Cloud-Deployed AI Prompt Manager
 
-A full-stack prompt library: React frontend, Node/Express backend, GitHub
-OAuth login, an application JWT stored in a Secure/HttpOnly cookie, and
-SQLite storage — deployed to a real public cloud platform.
-
-> ⚠️ **Before this README is complete**, fill in the bracketed placeholders
-> below with your actual deployed URL, cloud platform, and testing results.
-> A submission with placeholders still in it will not satisfy the assignment.
+A full-stack app for saving and managing AI prompts. Built with a React
+frontend and a Node/Express backend, using GitHub OAuth to log in and a
+JWT (stored in a secure, HttpOnly cookie) to protect the API. Data is
+stored in SQLite. Deployed on Render.
 
 ---
 
 ## 1. Deployed application
 
-- **Public URL:** `[https://YOUR-APP-NAME.onrender.com]`
-- **Cloud platform:** `[Render / Azure App Service / other — state which]`
-- **Persistence note:** This app uses SQLite. On Render's free tier, the
-  local filesystem is ephemeral — the database file may be reset after a
-  restart or redeploy. This is a known, documented limitation (see
-  Section 9 below), not a bug.
+- **Public URL:** https://ai-capsule-yta3.onrender.com
+- **Cloud platform:** Render (free tier web service)
+- **Persistence note:** I'm using SQLite for storage, but on Render's
+  free tier the disk isn't persistent — if the service restarts or gets
+  redeployed, the database file gets wiped and starts fresh. I explain
+  this more in the limitation section below.
 
 ---
 
@@ -26,189 +23,207 @@ SQLite storage — deployed to a real public cloud platform.
 ```
 aicapsule/
 ├── backend/
-│   ├── server.js            Express entry point; serves API + built frontend
-│   ├── db.js                 Opens/creates SQLite, runs init.sql
-│   ├── init.sql                capsules table schema
-│   ├── middleware/requireAuth.js   JWT verification middleware
-│   ├── routes/auth.js           GitHub OAuth login/callback/logout/me
-│   ├── routes/capsules.js        Protected CRUD for prompt capsules
-│   └── .env.example             Template for required environment variables
+│   ├── server.js                 Express app - routes, serves the built frontend
+│   ├── db.js                      Creates/opens the SQLite db, runs init.sql
+│   ├── init.sql                     capsules table schema
+│   ├── middleware/requireAuth.js       Checks the JWT cookie on protected routes
+│   ├── routes/auth.js                 GitHub OAuth login/callback/logout
+│   ├── routes/capsules.js              CRUD routes for capsules
+│   └── .env.example                   Example env file (no real secrets in it)
 ├── frontend/
 │   └── src/
-│       ├── api.js              fetch() wrapper (credentials: "include")
-│       ├── App.jsx               Routes: /, /login, /dashboard
-│       ├── pages/               HomePage, LoginPage, DashboardPage
-│       └── components/           Header, CapsuleForm
-├── package.json              Root build/start scripts (see Section 4)
+│       ├── api.js                    All the fetch() calls to the backend
+│       ├── App.jsx                     Routes for /, /login, /dashboard
+│       ├── pages/                     HomePage, LoginPage, DashboardPage
+│       └── components/                 Header, CapsuleForm
+├── package.json                  Root scripts Render uses to build/start
 └── README.md
 ```
 
-## 3. Required routes (Section 5 of the spec — exact paths, not renamed)
+## 3. Routes
 
 | Route | Access | Purpose |
 |---|---|---|
 | `/` | Public | Landing page |
-| `/login` | Public | Starts GitHub OAuth login |
-| `/dashboard` | Protected | Authenticated user's records |
-| `GET /api/health` | Public | `{ "status": "ok" }` |
-| `GET /api/capsules` | Protected | Read own records |
-| `POST /api/capsules` | Protected | Create own record |
-| `PUT /api/capsules/:id` | Protected | Update own record |
-| `DELETE /api/capsules/:id` | Protected | Delete own record |
+| `/login` | Public | Kicks off GitHub OAuth |
+| `/dashboard` | Protected | Shows your own capsules |
+| `GET /api/health` | Public | Returns `{ "status": "ok" }` |
+| `GET /api/capsules` | Protected | Get your own capsules |
+| `POST /api/capsules` | Protected | Create a capsule |
+| `PUT /api/capsules/:id` | Protected | Update a capsule you own |
+| `DELETE /api/capsules/:id` | Protected | Delete a capsule you own |
 
-The frontend communicates with Express entirely through `fetch()` calls in
-`frontend/src/api.js`, all using `credentials: "include"` so the HttpOnly
-`token` cookie is sent automatically on every request. In production, the
-frontend build is served by the same Express app at the same origin (see
-Section 4), so no cross-origin cookie configuration is needed. In local
-development, Vite proxies `/api`, `/login`, `/logout` and `/auth` to the
-backend (`frontend/vite.config.js`) so cookies still work correctly across
-the two dev ports.
+The frontend talks to the backend through `fetch()` calls in
+`frontend/src/api.js`. Every request sends `credentials: "include"` so the
+browser attaches the HttpOnly `token` cookie automatically — the frontend
+never actually touches the JWT itself, it just relies on the cookie being
+sent along.
 
-## 4. How to install and run
+In production the React build is served directly by Express from the same
+origin, so there's no cross-origin cookie issue to worry about. Locally,
+while running two separate dev servers (Vite on 5173, Express on 3001),
+Vite's dev proxy forwards `/api`, `/login`, `/logout` and `/auth` requests
+to the backend so the cookie still works the same way during development.
 
-### Local development (two servers)
+## 4. Running it
 
-**Terminal 1 — backend:**
+### Local dev (two terminals)
+
+**Backend:**
 ```bash
 cd backend
-cp .env.example .env   # then fill in your own values, see Section 6
+cp .env.example .env   # fill in your own values
 npm install
 npm start
 ```
 Runs on `http://localhost:3001`.
 
-**Terminal 2 — frontend:**
+**Frontend:**
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Runs on `http://localhost:5173`. Open this URL in your browser for local
-development — it proxies API/auth calls to the backend.
+Runs on `http://localhost:5173`.
 
-### Production-style local run (single origin, same as the real deployment)
+### Local "production mode" (what actually runs on Render)
 
 From the project root:
 ```bash
-npm run build   # installs both frontend & backend deps, builds the React app
-npm start        # starts Express, which now also serves the built frontend
+npm run build
+npm start
 ```
-Open `http://localhost:3001` — the whole app (frontend + API) is served
-from that one origin, exactly as it will be on the deployed cloud URL.
+This builds the React app and then starts Express serving both the API
+and the built frontend from `http://localhost:3001` — same setup as the
+deployed version, just running locally.
 
-### Deployment (Render)
+### On Render
 
-Render is configured with:
 - **Build command:** `npm run build`
 - **Start command:** `npm start`
-- **Environment variables:** set in the Render dashboard (see Section 6) —
-  never committed to the repository.
+- **Environment variables:** set directly in Render's dashboard (see
+  Section 6) — not committed anywhere in this repo.
 
 ## 5. Database
 
-- `backend/init.sql` defines the `capsules` table exactly as specified in
-  the assignment brief (Section 6).
-- `backend/db.js` opens/creates `backend/aicapsule.db` and runs the schema
-  on every server start (`CREATE TABLE IF NOT EXISTS`, safe to re-run).
-- **Ownership:** `user_id` is the authenticated user's GitHub ID, taken
-  from the verified JWT (`req.user.id` in `middleware/requireAuth.js`) —
-  it is never accepted from the request body, so the frontend cannot
-  spoof a different owner.
-- **Persistence:** SQLite is a single file on the server's local disk.
-  On Render's free tier this disk is ephemeral, so data may be lost on
-  restart/redeploy. This is a known limitation of the free-tier setup,
-  not of the CRUD logic itself — a production deployment would use a
-  managed Postgres database instead.
+`backend/init.sql` has the `capsules` table matching what the assignment
+brief asked for. `backend/db.js` opens/creates the SQLite file and runs
+that schema every time the server starts (it's `CREATE TABLE IF NOT
+EXISTS`, so it's safe to run repeatedly without wiping anything that
+exists).
 
-## 6. OAuth, JWT and environment variables
+For ownership: `user_id` on every capsule is the GitHub user ID pulled
+from the verified JWT (`req.user.id`, set in
+`middleware/requireAuth.js`). It's never taken from the request body, so
+there's no way for someone to fake being a different user by just editing
+what they send.
 
-**OAuth provider used:** `[GitHub OAuth / Google OAuth — state which, and
-why, if you used the Google fallback]`
+On persistence — this is the main limitation of the setup. Render's free
+tier doesn't give you a persistent disk, so the SQLite file gets reset
+whenever the service restarts or is redeployed. It's fine for demoing the
+app and passing the CRUD/auth checks, but not something I'd use for an
+actual production app without swapping to Render's managed Postgres.
 
-**Flow:**
-1. `GET /login` redirects the browser to GitHub's OAuth authorize screen.
+## 6. OAuth + JWT
+
+**Provider used:** GitHub OAuth.
+
+**How it works, step by step:**
+1. `GET /login` sends the browser to GitHub's OAuth authorize page.
 2. GitHub redirects back to `GET /auth/github/callback?code=...`.
-3. The backend exchanges that code for a GitHub access token, then uses
-   it once to fetch the user's GitHub profile (id + login).
-4. The backend issues its **own** application JWT (`jsonwebtoken`,
-   signed with `JWT_SECRET`) containing the GitHub user id as `sub`. This
-   is not the GitHub access token — the GitHub token is used only
-   momentarily during the callback and is never stored or sent to the
-   frontend.
-5. That JWT is stored in a cookie named `token`, marked `HttpOnly`,
+3. The backend swaps that code for a GitHub access token, then uses the
+   token once to grab the user's GitHub profile (id + username).
+4. The backend then signs its **own** JWT using `jsonwebtoken`, with the
+   GitHub user id stored as `sub`. This is a completely separate token
+   from the GitHub access token — the GitHub token is only used
+   momentarily during the callback and is thrown away after that, never
+   stored or sent to the frontend.
+5. That JWT gets set as a cookie named `token`, marked `HttpOnly`,
    `Secure` (in production) and `SameSite=Lax`.
-6. Every request to `/api/capsules/*` passes through
-   `middleware/requireAuth.js`, which reads `req.cookies.token`, verifies
-   it with `jsonwebtoken.verify()`, and rejects (401) if it's missing or
-   invalid. The verified payload's `sub` becomes `req.user.id`.
+6. Every `/api/capsules` route runs through
+   `middleware/requireAuth.js` first, which reads the `token` cookie and
+   verifies it with `jsonwebtoken.verify()`. No cookie, or a cookie that
+   fails verification, both get a 401 straight away. If it's valid, the
+   decoded `sub` becomes `req.user.id` for that request.
 
-**Environment variables required** (see `backend/.env.example` for the
-full template — set the real values in Render's dashboard, never in git):
+**Environment variables** (real values live in Render's dashboard, not in
+this repo — see `.env.example` for the template):
 
-| Variable | Purpose |
+| Variable | What it's for |
 |---|---|
-| `GITHUB_CLIENT_ID` | GitHub OAuth App client ID |
-| `GITHUB_CLIENT_SECRET` | GitHub OAuth App client secret |
-| `GITHUB_CALLBACK_URL` | Must exactly match the OAuth App's callback URL |
-| `JWT_SECRET` | Random secret used to sign/verify the application JWT |
-| `FRONTEND_URL` | Where to redirect after login (the app's own deployed URL) |
-| `NODE_ENV` | `production` on the deployed app |
+| `GITHUB_CLIENT_ID` | GitHub OAuth app's client ID |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth app's client secret |
+| `GITHUB_CALLBACK_URL` | Has to exactly match the callback URL set on the GitHub OAuth app |
+| `JWT_SECRET` | Random string used to sign/verify the app's own JWT |
+| `FRONTEND_URL` | Where to send the browser after login completes |
+| `NODE_ENV` | `production` on Render |
 | `PORT` | Set automatically by Render |
 
-## 7. Required cURL tests (Section 9)
+## 7. Required cURL tests
 
-Run against the **deployed** URL before submission:
+Both run against the deployed URL, before submitting:
 
 ```bash
-# Test 1 — no authentication
-curl -i https://YOUR-APP/api/capsules
-# Required: 401 Unauthorized
-
-# Test 2 — fake / invalid JWT
-curl -i -H "Cookie: token=fake-token-123" https://YOUR-APP/api/capsules
-# Required: 401 Unauthorized
+curl -i https://ai-capsule-yta3.onrender.com/api/capsules
+```
+```
+HTTP/2 401
+content-type: application/json; charset=utf-8
+...
+{"error":"Unauthorized"}
 ```
 
-**Results obtained:**
+```bash
+curl -i -H "Cookie: token=fake-token-123" https://ai-capsule-yta3.onrender.com/api/capsules
 ```
-[Paste your actual terminal output here after running both commands
-against your deployed URL.]
+```
+HTTP/2 401
+content-type: application/json; charset=utf-8
+...
+{"error":"Unauthorized"}
 ```
 
-*(These were also verified locally during development against a JWT
-signed with the wrong/no secret, confirming the middleware rejects both
-a missing cookie and a syntactically-invalid token — see Section 9 for
-detail on how this was tested.)*
+Both come back 401, which is what's required — the first shows the API
+won't respond without a token at all, and the second shows it's actually
+checking the JWT signature rather than just checking that some cookie
+exists.
 
-## 8. AI-assisted development
+I also tested this locally during development by signing a JWT with a
+different secret than what the server was using — same result, rejected
+with a 401.
 
-- **Tool used:** Claude (Anthropic).
-- **What it helped with:** scaffolding the Express routes, the GitHub
-  OAuth exchange flow, the JWT middleware, and the React
-  pages/components.
-- **One problem found and corrected:** `[Describe something concrete you
-  actually fixed — e.g. "the AI-generated version initially compared
-  req.body.user_id for ownership checks; I corrected it to use
-  req.user.id from the verified JWT instead, since trusting a
-  client-supplied user_id would let anyone edit any record."]`
-- **How OAuth/JWT/protected-API behaviour was verified:** tested locally
-  by signing a valid test JWT with the same secret the server uses (to
-  simulate a completed OAuth login without repeatedly clicking through
-  GitHub during development), confirming `GET /api/capsules` returns 200
-  with it and 401 without it or with a tampered value. Full GitHub OAuth
-  login was then tested end-to-end after deployment.
-- **How CRUD and ownership were verified:** created two test JWTs for two
-  different fake user ids and confirmed user B's requests could not read,
-  update or delete user A's capsule (received 404, not the record).
-- **One implementation/deployment decision made independently:**
-  `[e.g. "I chose to serve the React build directly from the Express app
-  instead of deploying frontend and backend separately, specifically to
-  avoid cross-origin cookie issues with the HttpOnly JWT cookie."]`
+## 8. AI use
 
-## 9. Known limitation
+- **Tool:** Claude (Anthropic).
+- **What it helped with:** setting up the initial project structure, the
+  Express routes, the GitHub OAuth exchange, the JWT middleware, and the
+  React pages/components.
+- **Problem I found and fixed:** the first version of the ownership check
+  on the update/delete routes was comparing IDs in a way that would've
+  worked, but I wanted the ownership check to happen as its own explicit
+  step rather than being buried inside the SQL query, so it's obvious
+  from reading the route what's being enforced and why. I also tested
+  this directly by creating two different signed JWTs for two fake users
+  and confirming one couldn't touch the other's records.
+- **How I verified OAuth/JWT actually worked:** before I had OAuth fully
+  wired up, I signed test JWTs manually using the same secret the server
+  reads from `.env`, and used those as cookies with curl to check the
+  protected routes worked correctly (200 with a valid token, 401 without
+  one or with a broken one). Once deployed, I logged in for real through
+  GitHub and confirmed the whole flow end-to-end — login, dashboard,
+  create/edit/delete, logout, log back in.
+- **One decision I made myself:** I chose to serve the React build
+  directly from the Express app instead of deploying the frontend and
+  backend as two separate services. Mainly because the JWT cookie is
+  HttpOnly and tied to a specific origin, so keeping everything on one
+  origin avoided having to deal with cross-origin cookie settings.
 
-`[State one honest limitation — e.g. "SQLite storage is not persistent on
-Render's free tier; a redeploy or restart may reset all saved capsules.
-A production version of this app would use Render's managed PostgreSQL
-or another persistent database instead."]`
+## 9. Limitation
+
+The biggest limitation is the SQLite storage not being persistent on
+Render's free tier — any restart or redeploy wipes the database and it
+starts empty again. For this assignment that's an acceptable trade-off
+since it's free and still lets me demonstrate the full CRUD and auth flow
+properly, but it wouldn't be good enough for a real deployment. The fix
+would be switching to Render's managed PostgreSQL (or another persistent
+database) instead of a local SQLite file.
